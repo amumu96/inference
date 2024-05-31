@@ -122,7 +122,8 @@ class CacheTrackerActor(xo.Actor):
         for model, model_versions in self._model_name_to_version_info.items():
             if model_name.lower() == model.lower():
                 for version_info in model_versions:
-                    if version_info["cache_status"]:
+                    cache_status = version_info.get("cache_status", None)
+                    if cache_status == True:
                         model_file_location = version_info["model_file_location"]
 
         return {model_name: model_file_location}
@@ -133,7 +134,10 @@ class CacheTrackerActor(xo.Actor):
         for model, model_versions in self._model_name_to_version_info.items():
             if model_name.lower() == model.lower():
                 for version_info in model_versions:
-                    if version_info["model_file_location"] == model_file_location:
+                    if (
+                        version_info.get("model_file_location", {})
+                        == model_file_location
+                    ):
                         try:
                             target_dir = next(iter(model_file_location.values()))
                             if os.path.exists(target_dir):
