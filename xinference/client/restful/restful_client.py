@@ -1218,7 +1218,7 @@ class Client:
         ----------
         model_name: str
            The name of the model.
-        model_file_location: Dict[str,Dict[Any]]
+        model_file_location: Dict[str, Dict[str, str]]
             Dictionary with keys IP and values file_path.
 
         Returns

@@ -175,6 +175,37 @@ def test_list_cached_models(setup):
     assert len(client.list_cached_models()) == 2
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
+def test_get_remove_cached_models(setup):
+    endpoint, local_host = setup
+    client = RESTfulClient(endpoint)
+
+    response = client.get_remove_cached_models("orca")
+
+    assert response == {
+        "orca": {
+            local_host: "/home/runner/.xinference/cache/orca-ggmlv3-3b/orca-mini-3b.ggmlv3.q4_0.bin"
+        }
+    }
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Skip windows")
+def test_remove_cached_models(setup):
+    endpoint, local_host = setup
+    client = RESTfulClient(endpoint)
+
+    responses = client.remove_cached_models(
+        model_name="orca",
+        model_file_location={
+            "orca": {
+                local_host: "/home/runner/.xinference/cache/orca-ggmlv3-3b/orca-mini-3b.ggmlv3.q4_0.bin"
+            }
+        },
+    )
+
+    assert responses == "Success"
+
+
 def test_RESTful_client_for_embedding(setup):
     endpoint, _ = setup
     client = RESTfulClient(endpoint)
