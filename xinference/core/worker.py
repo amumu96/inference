@@ -790,7 +790,7 @@ class WorkerActor(xo.StatelessActor):
         self, model_name: Optional[str] = None
     ) -> List[Dict[Any, Any]]:
         lists = await self._cache_tracker_ref.list_cached_models(
-            model_name, self.address
+            self.address, model_name
         )
         cached_models = []
         for list in lists:
@@ -803,6 +803,7 @@ class WorkerActor(xo.StatelessActor):
             }
             path = list.get("model_file_location")
             cached_model["path"] = path
+            logger.debug(f"Caching model: {cached_model}")
             # parsing soft links
             if os.path.isdir(path):
                 files = os.listdir(path)
