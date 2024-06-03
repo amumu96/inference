@@ -103,41 +103,30 @@ class CacheTrackerActor(xo.Actor):
     def get_model_version_count(self, model_name: str) -> int:
         return len(self.get_model_versions(model_name))
 
-    def list_cached_models(self) -> List[Dict[Any, Any]]:
+    def list_cached_models(
+        self, model_name: Optional[str] = None, worker_ip: Optional[str] = None
+    ) -> List[Dict[Any, Any]]:
         cached_models = []
-        for model_name, model_versions in self._model_name_to_version_info.items():
-            for version_info in model_versions:
-                cache_status = version_info.get("cache_status", None)
-                if cache_status == True:
-                    ret = version_info.copy()
-                    ret["model_name"] = model_name
-
-                    re_dict = version_info.get("model_file_location", None)
-                    if re_dict is not None and isinstance(re_dict, dict):
-                        if re_dict:
-                            actor_ip_address, path = next(iter(re_dict.items()))
-                        else:
-                            raise ValueError("The dictionary is empty.")
-                    else:
-                        raise ValueError("re_dict must be a non-empty dictionary.")
-
-                    ret["actor_ip_address"] = actor_ip_address
-                    ret["path"] = path
-                    if os.path.isdir(path):
-                        files = os.listdir(path)
-                        resolved_file = os.path.realpath(os.path.join(path, files[0]))
-                        if resolved_file:
-                            ret["real_path"] = os.path.dirname(resolved_file)
-                    else:
-                        ret["real_path"] = os.path.realpath(path)
-                    cached_models.append(ret)
-        cached_models = sorted(cached_models, key=lambda x: x["model_name"])
+        for name, versions in self._model_name_to_version_info.items():
+            # only return assigned cached model if model_name is not none
+            # else return all cached model
+            if model_name and model_name != name:
+                continue
+            for version_info in versions:
+                cache_status = version_info.get("cache_status", False)
+                # search cached model
+                if cache_status:
+                    res = version_info.copy()
+                    res["model_name"] = name
+                    paths = res.get("model_file_location", {})
+                    # only return assigned worker's device path is worker_ip is not none
+                    # else return all path
+                    if worker_ip and worker_ip in paths.keys():
+                        res["model_file_location"] = paths[worker_ip]
+                    cached_models.append(res)
         return cached_models
 
-    def get_remove_cached_models(
-        self, model_name: str, checked: bool = False
-    ) -> Dict[str, Dict[str, str]]:
-        assert checked == False
+    def get_remove_cached_models(self, model_name: str) -> Dict[str, Dict[str, str]]:
         model_file_location = {}
         for model, model_versions in self._model_name_to_version_info.items():
             if model_name.lower() == model.lower():
@@ -145,8 +134,8 @@ class CacheTrackerActor(xo.Actor):
                     cache_status = version_info.get("cache_status", None)
                     if cache_status == True:
                         model_file_location = version_info["model_file_location"]
-
-        return {model_name: model_file_location}
+        logger.debug(f"{model_file_location}")
+        return model_file_location
 
     def remove_cached_models(
         self, model_name: str, model_file_location: Dict[str, str]

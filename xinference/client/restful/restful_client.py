@@ -1102,13 +1102,18 @@ class Client:
         response_data = response.json()
         return response_data
 
-    def list_cached_models(self) -> List[Dict[Any, Any]]:
+    def list_cached_models(
+        self, model_name: Optional[str] = None, worker_ip: Optional[str] = None
+    ) -> List[Dict[Any, Any]]:
         """
         Get a list of cached models.
 
         Parameters
         ----------
-        None
+        model_name: Optional[str]
+            The name of model.
+        worker_ip: Optional[str]
+            Specify the worker ip where the model is located in a distributed scenario.
 
         Returns
         -------
@@ -1122,13 +1127,17 @@ class Client:
         """
 
         url = f"{self.base_url}/v1/cached/list_cached_models"
-        response = requests.get(url, headers=self._headers)
+        payload = {
+            "model_name": model_name,
+            "worker_ip": worker_ip,
+        }
+        response = requests.get(url, headers=self._headers, json=payload)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to list cached model, detail: {_get_error_string(response)}"
             )
-
         response_data = response.json()
+        response_data = response_data.get("list")
         return response_data
 
     def get_model_registration(

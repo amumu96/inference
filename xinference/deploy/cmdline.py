@@ -578,6 +578,18 @@ def list_model_registrations(
     help="Xinference endpoint.",
 )
 @click.option(
+    "--model_name",
+    "-n",
+    type=str,
+    help="Provide the name of the models to be removed.",
+)
+@click.option(
+    "--worker-ip",
+    default=None,
+    type=str,
+    help="Specify which worker this model runs on by ip, for distributed situation.",
+)
+@click.option(
     "--api-key",
     "-ak",
     default=None,
@@ -587,6 +599,8 @@ def list_model_registrations(
 def list_cached_models(
     endpoint: Optional[str],
     api_key: Optional[str],
+    model_name: Optional[str],
+    worker_ip: Optional[str],
 ):
     from tabulate import tabulate
 
@@ -595,8 +609,7 @@ def list_cached_models(
     if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
 
-    cached_models = client.list_cached_models()
-
+    cached_models = client.list_cached_models(model_name, worker_ip)
     print("cached_model: ")
     headers = list(cached_models[0].keys())
     table_data = []
@@ -622,6 +635,12 @@ def list_cached_models(
     help="Provide the name of the models to be removed.",
 )
 @click.option(
+    "--worker-ip",
+    default=None,
+    type=str,
+    help="Specify which worker this model runs on by ip, for distributed situation.",
+)
+@click.option(
     "--api-key",
     "-ak",
     default=None,
@@ -630,7 +649,11 @@ def list_cached_models(
 )
 @click.option("--check", is_flag=True, help="Confirm the deletion of the cache.")
 def remove_cache(
-    endpoint: Optional[str], model_name: str, api_key: Optional[str], check: bool
+    endpoint: Optional[str],
+    model_name: str,
+    api_key: Optional[str],
+    check: bool,
+    worker_ip: Optional[str],
 ):
     endpoint = get_endpoint(endpoint)
     client = RESTfulClient(base_url=endpoint, api_key=api_key)

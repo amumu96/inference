@@ -786,15 +786,45 @@ class WorkerActor(xo.StatelessActor):
             except asyncio.CancelledError:  # pragma: no cover
                 break
 
-    async def list_cached_models(self) -> List[Dict[Any, Any]]:
-        return self._cache_tracker_ref.list_cached_models()
+    async def list_cached_models(
+        self, model_name: Optional[str] = None
+    ) -> List[Dict[Any, Any]]:
+        lists = await self._cache_tracker_ref.list_cached_models(
+            model_name, self.address
+        )
+        cached_models = []
+        for list in lists:
+            cached_model = {
+                "model_name": list.get("model_name"),
+                "model_size_in_billions": list.get("model_size_in_billions"),
+                "model_format": list.get("model_format"),
+                "quantization": list.get("quantization"),
+                "model_version": list.get("model_version"),
+            }
+            path = list.get("model_file_location")
+            cached_model["path"] = path
+            # parsing soft links
+            if os.path.isdir(path):
+                files = os.listdir(path)
+                resolved_file = os.path.realpath(os.path.join(path, files[0]))
+                if resolved_file:
+                    cached_model["real_path"] = os.path.dirname(resolved_file)
+            else:
+                cached_model["real_path"] = os.path.realpath(path)
+            cached_model["actor_ip_address"] = self.address
+            cached_models.append(cached_model)
+        return cached_models
 
     async def get_remove_cached_models(
-        self, model_name: str, checked: bool = False
+        self, model_name: str
     ) -> Dict[str, Dict[str, str]]:
-        return self._cache_tracker_ref.get_remove_cached_models(
-            model_name=model_name, checked=False
+        model_file_location = await self._cache_tracker_ref.get_remove_cached_models(
+            model_name=model_name
         )
+        path = model_file_location[self.address]
+        if os.path.exists(path):
+            pass
+        return path
 
     async def remove_cached_models(
         self, model_name: str, model_file_location: Dict[str, str]

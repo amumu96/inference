@@ -1515,10 +1515,18 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def list_cached_models(self) -> JSONResponse:
+    async def list_cached_models(self, request: Request) -> JSONResponse:
+        payload = await request.json()
+        model_name = payload.get("model_name")
+        worker_ip = payload.get("worker_ip")
         try:
-            data = await (await self._get_supervisor_ref()).list_cached_models()
-            return JSONResponse(content=data)
+            data = await (await self._get_supervisor_ref()).list_cached_models(
+                model_name, worker_ip
+            )
+            resp = {
+                "list": data,
+            }
+            return JSONResponse(content=resp)
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
@@ -1575,11 +1583,11 @@ class RESTfulAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
     async def get_remove_cached_models(
-        self, model_name: str, checked: bool = Query(False)
+        self, model_name: str, worker_ip: Optional[str] = Query(None)
     ) -> JSONResponse:
         try:
             data = await (await self._get_supervisor_ref()).get_remove_cached_models(
-                model_name, checked=checked
+                model_name, worker_ip
             )
             return JSONResponse(content=data)
         except ValueError as re:
