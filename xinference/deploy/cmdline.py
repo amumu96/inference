@@ -610,8 +610,10 @@ def list_cached_models(
         client._set_token(get_stored_token(endpoint, client))
 
     cached_models = client.list_cached_models(model_name, worker_ip)
-    print("cached_model: ")
+    if not cached_models:
+        print("There are no cache files.")
     headers = list(cached_models[0].keys())
+    print("cached_model: ")
     table_data = []
     for model in cached_models:
         row_data = [

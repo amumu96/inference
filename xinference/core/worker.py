@@ -803,7 +803,6 @@ class WorkerActor(xo.StatelessActor):
             }
             path = list.get("model_file_location")
             cached_model["path"] = path
-            logger.debug(f"Caching model: {cached_model}")
             # parsing soft links
             if os.path.isdir(path):
                 files = os.listdir(path)
