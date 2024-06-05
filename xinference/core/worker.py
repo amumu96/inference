@@ -806,9 +806,11 @@ class WorkerActor(xo.StatelessActor):
             # parsing soft links
             if os.path.isdir(path):
                 files = os.listdir(path)
-                resolved_file = os.path.realpath(os.path.join(path, files[0]))
-                if resolved_file:
-                    cached_model["real_path"] = os.path.dirname(resolved_file)
+                # dir has files
+                if files:
+                    resolved_file = os.path.realpath(os.path.join(path, files[0]))
+                    if resolved_file:
+                        cached_model["real_path"] = os.path.dirname(resolved_file)
             else:
                 cached_model["real_path"] = os.path.realpath(path)
             cached_model["actor_ip_address"] = self.address
@@ -816,13 +818,18 @@ class WorkerActor(xo.StatelessActor):
         return cached_models
 
     async def get_remove_cached_models(
-        self, model_name: str
-    ) -> Dict[str, Dict[str, str]]:
-        model_file_location = await self._cache_tracker_ref.get_remove_cached_models(
-            model_name=model_name
+        self, model_version: str
+    ) -> Dict[str, List[str]]:
+        paths = []
+        path = await self._cache_tracker_ref.get_remove_cached_models(
+            model_version, self.address
         )
-        path = model_file_location[self.address]
-        if os.path.exists(path):
+        if os.path.isdir(path):
+            files = os.listdir(path)
+            paths.extend([os.path.join(path, file) for file in files])
+            # search real path
+            # if paths:
+            # real_path = os.path.realpath(paths[0])
             pass
         return path
 

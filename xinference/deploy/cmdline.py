@@ -612,6 +612,7 @@ def list_cached_models(
     cached_models = client.list_cached_models(model_name, worker_ip)
     if not cached_models:
         print("There are no cache files.")
+        return
     headers = list(cached_models[0].keys())
     print("cached_model: ")
     table_data = []

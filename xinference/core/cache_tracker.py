@@ -120,20 +120,23 @@ class CacheTrackerActor(xo.Actor):
                     res["model_name"] = name
                     paths = res.get("model_file_location", {})
                     # only return assigned worker's device path
-                    if worker_ip and worker_ip in paths.keys():
+                    if worker_ip in paths.keys():
                         res["model_file_location"] = paths[worker_ip]
                         cached_models.append(res)
         return cached_models
 
-    def get_remove_cached_models(self, model_name: str) -> Dict[str, Dict[str, str]]:
-        model_file_location = {}
+    def get_remove_cached_models(self, model_version: str, worker_ip: str) -> str:
+        model_file_location = ""
         for model, model_versions in self._model_name_to_version_info.items():
-            if model_name.lower() == model.lower():
-                for version_info in model_versions:
-                    cache_status = version_info.get("cache_status", None)
-                    if cache_status == True:
-                        model_file_location = version_info["model_file_location"]
-        logger.debug(f"{model_file_location}")
+            for version_info in model_versions:
+                # search assign model version
+                if model_version == version_info.get("model_version", None):
+                    # check if exist
+                    if version_info.get("cache_status", None):
+                        paths = version_info.get("model_file_location", {})
+                        # only return assigned worker's device path
+                        if worker_ip in paths.keys():
+                            model_file_location = paths[worker_ip]
         return model_file_location
 
     def remove_cached_models(

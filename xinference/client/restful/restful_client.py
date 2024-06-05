@@ -1192,23 +1192,28 @@ class Client:
         return response_data
 
     def get_remove_cached_models(
-        self, model_name: str, checked: bool = False
+        self, model_version: str, worker_ip: Optional[str] = None
     ) -> Dict[str, Dict[str, str]]:
         """
         Get the cached models with the model name cached on the server.
 
         Parameters
         ----------
-        model_name: str
-            The name of the model.
-
+        model_version: str
+            The version of the model.
+        worker_ip: Optional[str]
+            Specify the worker ip where the model is located in a distributed scenario.
         Returns
         -------
         Dict[str, Dict[str,str]]]
             Dictionary with keys "model_name" and values model_file_location.
         """
-        url = f"{self.base_url}/v1/get_remove_cached_models/{model_name}"
-        response = requests.get(url, headers=self._headers)
+        url = f"{self.base_url}/v1/get_remove_cached_models"
+        payload = {
+            "model_version": model_version,
+            "worker_ip": worker_ip,
+        }
+        response = requests.get(url, headers=self._headers, json=payload)
         if response.status_code != 200:
             raise RuntimeError(
                 f"Failed to get paths by model name, detail: {_get_error_string(response)}"

@@ -504,7 +504,7 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
-            "/v1/get_remove_cached_models/{model_name}",
+            "/v1/get_remove_cached_models",
             self.get_remove_cached_models,
             methods=["GET"],
             dependencies=(
@@ -1582,12 +1582,13 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def get_remove_cached_models(
-        self, model_name: str, worker_ip: Optional[str] = Query(None)
-    ) -> JSONResponse:
+    async def get_remove_cached_models(self, request: Request) -> JSONResponse:
+        payload = await request.json()
+        worker_ip = payload.get("worker_ip", None)
+        model_version = payload.get("model_version", None)
         try:
             data = await (await self._get_supervisor_ref()).get_remove_cached_models(
-                model_name, worker_ip
+                model_version, worker_ip
             )
             return JSONResponse(content=data)
         except ValueError as re:

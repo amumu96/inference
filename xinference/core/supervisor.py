@@ -1057,7 +1057,7 @@ class SupervisorActor(xo.StatelessActor):
             worker_status.status = status
 
     async def get_remove_cached_models(
-        self, model_name: str, worker_ip: Optional[str] = None
+        self, model_version: str, worker_ip: Optional[str] = None
     ) -> Dict[str, Dict[str, str]]:
         target_ip_worker_ref = (
             self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
@@ -1071,12 +1071,12 @@ class SupervisorActor(xo.StatelessActor):
 
         if target_ip_worker_ref:
             ret = await target_ip_worker_ref.get_remove_cached_models(
-                model_name=model_name,
+                model_version=model_version,
             )
             return ret
 
         for worker in self._worker_address_to_worker.values():
-            ret = await worker.get_remove_cached_models(model_name=model_name)
+            ret = await worker.get_remove_cached_models(model_version=model_version)
         return ret
 
     async def remove_cached_models(
