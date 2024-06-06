@@ -16,6 +16,7 @@ import asyncio
 import os
 import platform
 import queue
+import shutil
 import signal
 import threading
 import time
@@ -817,28 +818,40 @@ class WorkerActor(xo.StatelessActor):
             cached_models.append(cached_model)
         return cached_models
 
-    async def get_remove_cached_models(
-        self, model_version: str
-    ) -> Dict[str, List[str]]:
-        paths = []
+    async def get_remove_cached_models(self, model_version: str) -> List[str]:
+        paths = set()
         path = await self._cache_tracker_ref.get_remove_cached_models(
             model_version, self.address
         )
+        if os.path.isfile(path):
+            path = os.path.dirname(path)
+
         if os.path.isdir(path):
             files = os.listdir(path)
-            paths.extend([os.path.join(path, file) for file in files])
+            paths.update([os.path.join(path, file) for file in files])
             # search real path
-            # if paths:
-            # real_path = os.path.realpath(paths[0])
-            pass
-        return path
+            if paths:
+                paths.update([os.path.realpath(path) for path in paths])
 
-    async def remove_cached_models(
-        self, model_name: str, model_file_location: Dict[str, str]
-    ) -> str:
-        return self._cache_tracker_ref.remove_cached_models(
-            model_name=model_name, model_file_location=model_file_location
-        )
+        return list(paths)
+
+    async def remove_cached_models(self, model_version: str) -> bool:
+        paths = await self.get_remove_cached_models(model_version)
+        for path in paths:
+            try:
+                if os.path.islink(path):
+                    os.unlink(path)
+                elif os.path.isfile(path):
+                    os.remove(path)
+                elif os.path.isdir(path):
+                    shutil.rmtree(path)
+                else:
+                    logger.debug(f"{path} is not a valid path.")
+            except Exception as e:
+                logger.error(f"Fail to delete {path} with error:{e}.")
+                return False
+        await self._cache_tracker_ref.remove_cached_models(model_version, self.address)
+        return True
 
     @staticmethod
     def record_metrics(name, op, kwargs):

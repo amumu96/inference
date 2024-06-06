@@ -1223,25 +1223,28 @@ class Client:
         return response_data
 
     def remove_cached_models(
-        self, model_name: str, model_file_location: Dict[str, Dict[str, str]]
-    ) -> str:
+        self, model_version: str, worker_ip: Optional[str] = None
+    ) -> bool:
         """
         Remove the cached models with the model name cached on the server.
 
         Parameters
         ----------
-        model_name: str
-           The name of the model.
-        model_file_location: Dict[str, Dict[str, str]]
-            Dictionary with keys IP and values file_path.
+        model_version: str
+            The version of the model.
+        worker_ip: Optional[str]
+            Specify the worker ip where the model is located in a distributed scenario.
 
         Returns
         -------
         str
             The response of the server.
         """
-        url = f"{self.base_url}/v1/remove_cached_models/{model_name}"
-        payload = model_file_location
+        url = f"{self.base_url}/v1/remove_cached_models"
+        payload = {
+            "model_version": model_version,
+            "worker_ip": worker_ip,
+        }
         response = requests.post(url, headers=self._headers, json=payload)
         if response.status_code != 200:
             raise RuntimeError(
@@ -1249,4 +1252,4 @@ class Client:
             )
 
         response_data = response.json()
-        return response_data
+        return response_data.get("result", False)

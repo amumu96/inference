@@ -632,10 +632,10 @@ def list_cached_models(
     help="Xinference endpoint.",
 )
 @click.option(
-    "--model_name",
+    "--model_version",
     "-n",
     type=str,
-    help="Provide the name of the models to be removed.",
+    help="Provide the version of the models to be removed.",
 )
 @click.option(
     "--worker-ip",
@@ -653,10 +653,10 @@ def list_cached_models(
 @click.option("--check", is_flag=True, help="Confirm the deletion of the cache.")
 def remove_cache(
     endpoint: Optional[str],
-    model_name: str,
+    model_version: str,
     api_key: Optional[str],
     check: bool,
-    worker_ip: Optional[str],
+    worker_ip: Optional[str] = None,
 ):
     endpoint = get_endpoint(endpoint)
     client = RESTfulClient(base_url=endpoint, api_key=api_key)
@@ -664,19 +664,29 @@ def remove_cache(
         client._set_token(get_stored_token(endpoint, client))
 
     if not check:
-        model_file_location = client.get_remove_cached_models(
-            model_name=model_name, checked=check
+        response = client.get_remove_cached_models(
+            model_version=model_version, worker_ip=worker_ip
         )
-        click.echo(f"Cache directory to be deleted: {model_file_location}")
+        paths = response.get("paths", [])
+        if not paths:
+            click.echo(f"There is no model version named {model_version}.")
+            return
+        click.echo(f"Model {model_version} cache directory to be deleted:")
+        for path in response.get("paths", []):
+            click.echo(f"{path}")
+
         if click.confirm("Do you want to proceed with the deletion?", abort=True):
             check = True
     try:
-        Result = client.remove_cached_models(
-            model_name=model_name, model_file_location=model_file_location
+        result = client.remove_cached_models(
+            model_version=model_version, worker_ip=worker_ip
         )
-        click.echo(
-            f"Cache directory {model_name} has been deleted, Result is {Result}."
-        )
+        if result:
+            click.echo(f"Cache directory {model_version} has been deleted.")
+        else:
+            click.echo(
+                f"Cache directory {model_version} fail to be deleted. Please check the log."
+            )
     except Exception as e:
         click.echo(f"An error occurred while deleting the cache: {e}")
 

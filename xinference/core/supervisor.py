@@ -1058,7 +1058,32 @@ class SupervisorActor(xo.StatelessActor):
 
     async def get_remove_cached_models(
         self, model_version: str, worker_ip: Optional[str] = None
-    ) -> Dict[str, Dict[str, str]]:
+    ) -> List[str]:
+        target_ip_worker_ref = (
+            self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
+        )
+        if (
+            worker_ip is not None
+            and not self.is_local_deployment()
+            and target_ip_worker_ref is None
+        ):
+            raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
+
+        ret = []
+        if target_ip_worker_ref:
+            ret = await target_ip_worker_ref.get_remove_cached_models(
+                model_version=model_version,
+            )
+            return ret
+
+        for worker in self._worker_address_to_worker.values():
+            path = await worker.get_remove_cached_models(model_version=model_version)
+            ret.extend(path)
+        return ret
+
+    async def remove_cached_models(
+        self, model_version: str, worker_ip: Optional[str] = None
+    ) -> bool:
         target_ip_worker_ref = (
             self._get_worker_ref_by_ip(worker_ip) if worker_ip is not None else None
         )
@@ -1070,21 +1095,14 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
 
         if target_ip_worker_ref:
-            ret = await target_ip_worker_ref.get_remove_cached_models(
+            ret = await target_ip_worker_ref.remove_cached_models(
                 model_version=model_version,
             )
             return ret
-
+        ret = True
         for worker in self._worker_address_to_worker.values():
-            ret = await worker.get_remove_cached_models(model_version=model_version)
-        return ret
-
-    async def remove_cached_models(
-        self, model_name: str, model_file_location: Dict[str, str]
-    ) -> str:
-        for worker in self._worker_address_to_worker.values():
-            ret = await worker.remove_cached_models(
-                model_name=model_name, model_file_location=model_file_location
+            ret = ret and await worker.remove_cached_models(
+                model_version=model_version,
             )
         return ret
 
