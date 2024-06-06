@@ -1193,7 +1193,7 @@ class Client:
 
     def get_remove_cached_models(
         self, model_version: str, worker_ip: Optional[str] = None
-    ) -> Dict[str, Dict[str, str]]:
+    ) -> Dict[str, Any]:
         """
         Get the cached models with the model name cached on the server.
 
