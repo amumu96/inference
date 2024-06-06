@@ -667,7 +667,7 @@ def remove_cache(
         response = client.get_remove_cached_models(
             model_version=model_version, worker_ip=worker_ip
         )
-        paths = response.get("paths", [])
+        paths: List[str] = response.get("paths", [])
         if not paths:
             click.echo(f"There is no model version named {model_version}.")
             return
