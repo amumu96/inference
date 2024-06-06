@@ -297,7 +297,7 @@ def test_list_cached_models(setup):
     assert "model_name" in result.stdout
     assert "model_format" in result.stdout
     assert "model_size_in_billions" in result.stdout
-    assert "quantizations" in result.stdout
+    assert "quantization" in result.stdout
     assert "model_version" in result.stdout
     assert "path" in result.stdout
     assert "actor_ip_address" in result.stdout
