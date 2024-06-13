@@ -684,6 +684,49 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         response_data = response.json()
         return response_data
 
+    def speech(
+        self,
+        input: str,
+        voice: str = "",
+        response_format: str = "mp3",
+        speed: float = 1.0,
+    ):
+        """
+        Generates audio from the input text.
+
+        Parameters
+        ----------
+
+        input: str
+            The text to generate audio for. The maximum length is 4096 characters.
+        voice: str
+            The voice to use when generating the audio.
+        response_format: str
+            The format to audio in.
+        speed: str
+            The speed of the generated audio.
+
+        Returns
+        -------
+        bytes
+            The generated audio binary.
+        """
+        url = f"{self._base_url}/v1/audio/speech"
+        params = {
+            "model": self._model_uid,
+            "input": input,
+            "voice": voice,
+            "response_format": response_format,
+            "speed": speed,
+        }
+        response = requests.post(url, json=params, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to speech the text, detail: {_get_error_string(response)}"
+            )
+
+        return response.content
+
 
 class Client:
     def __init__(self, base_url, api_key: Optional[str] = None):
@@ -1107,7 +1150,6 @@ class Client:
     ) -> List[Dict[Any, Any]]:
         """
         Get a list of cached models.
-
         Parameters
         ----------
         model_name: Optional[str]
@@ -1126,7 +1168,7 @@ class Client:
             Raised when the request fails, including the reason for the failure.
         """
 
-        url = f"{self.base_url}/v1/cached/list_cached_models"
+        url = f"{self.base_url}/v1/cached/models"
         payload = {
             "model_name": model_name,
             "worker_ip": worker_ip,
@@ -1136,9 +1178,70 @@ class Client:
             raise RuntimeError(
                 f"Failed to list cached model, detail: {_get_error_string(response)}"
             )
+
         response_data = response.json()
         response_data = response_data.get("list")
         return response_data
+
+    def list_deletable_models(
+        self, model_version: str, worker_ip: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get the cached models with the model path cached on the server.
+        Parameters
+        ----------
+        model_version: str
+            The version of the model.
+        worker_ip: Optional[str]
+            Specify the worker ip where the model is located in a distributed scenario.
+        Returns
+        -------
+        Dict[str, Dict[str,str]]]
+            Dictionary with keys "model_name" and values model_file_location.
+        """
+        url = f"{self.base_url}/v1/cached/models/status"
+        params = {
+            "model_version": model_version,
+            "worker_ip": worker_ip,
+        }
+        response = requests.get(url, headers=self._headers, params=params)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get paths by model name, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
+    def confirm_and_remove_model(
+        self, model_version: str, worker_ip: Optional[str] = None
+    ) -> bool:
+        """
+        Remove the cached models with the model name cached on the server.
+        Parameters
+        ----------
+        model_version: str
+            The version of the model.
+        worker_ip: Optional[str]
+            Specify the worker ip where the model is located in a distributed scenario.
+        Returns
+        -------
+        str
+            The response of the server.
+        """
+        url = f"{self.base_url}/v1/cached/models/deletion"
+        payload = {
+            "model_version": model_version,
+            "worker_ip": worker_ip,
+        }
+        response = requests.post(url, headers=self._headers, json=payload)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to remove cached models, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data.get("result", False)
 
     def get_model_registration(
         self, model_type: str, model_name: str
@@ -1191,65 +1294,29 @@ class Client:
         response_data = response.json()
         return response_data
 
-    def get_remove_cached_models(
-        self, model_version: str, worker_ip: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def abort_request(self, model_uid: str, request_id: str):
         """
-        Get the cached models with the model name cached on the server.
+        Abort a request.
+        Abort a submitted request. If the request is finished or not found, this method will be a no-op.
+        Currently, this interface is only supported when batching is enabled for models on transformers backend.
 
         Parameters
         ----------
-        model_version: str
-            The version of the model.
-        worker_ip: Optional[str]
-            Specify the worker ip where the model is located in a distributed scenario.
+        model_uid: str
+            Model uid.
+        request_id: str
+            Request id.
         Returns
         -------
-        Dict[str, Dict[str,str]]]
-            Dictionary with keys "model_name" and values model_file_location.
+        Dict
+            Return empty dict.
         """
-        url = f"{self.base_url}/v1/get_remove_cached_models"
-        payload = {
-            "model_version": model_version,
-            "worker_ip": worker_ip,
-        }
-        response = requests.get(url, headers=self._headers, json=payload)
+        url = f"{self.base_url}/v1/models/{model_uid}/requests/{request_id}/abort"
+        response = requests.post(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(
-                f"Failed to get paths by model name, detail: {_get_error_string(response)}"
+                f"Failed to abort request, detail: {_get_error_string(response)}"
             )
 
         response_data = response.json()
         return response_data
-
-    def remove_cached_models(
-        self, model_version: str, worker_ip: Optional[str] = None
-    ) -> bool:
-        """
-        Remove the cached models with the model name cached on the server.
-
-        Parameters
-        ----------
-        model_version: str
-            The version of the model.
-        worker_ip: Optional[str]
-            Specify the worker ip where the model is located in a distributed scenario.
-
-        Returns
-        -------
-        str
-            The response of the server.
-        """
-        url = f"{self.base_url}/v1/remove_cached_models"
-        payload = {
-            "model_version": model_version,
-            "worker_ip": worker_ip,
-        }
-        response = requests.post(url, headers=self._headers, json=payload)
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to remove cached models, detail: {_get_error_string(response)}"
-            )
-
-        response_data = response.json()
-        return response_data.get("result", False)

@@ -176,22 +176,30 @@ def test_list_cached_models(setup):
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
-def test_get_remove_cached_models(setup):
+def test_list_deletable_models(setup):
     endpoint, local_host = setup
     client = RESTfulClient(endpoint)
-    response = client.get_remove_cached_models("orca--3B--ggmlv3--q4_0")
+    response = client.list_deletable_models("orca--3B--ggmlv3--q4_0")
     paths = response.get("paths", [])
-    assert (
-        "/home/runner/.xinference/cache/orca-ggmlv3-3b/orca-mini-3b.ggmlv3.q4_0.bin"
-        in paths
+
+    expected_path = os.path.join(
+        os.environ["HOME"],
+        ".xinference",
+        "cache",
+        "orca-ggmlv3-3b",
+        "orca-mini-3b.ggmlv3.q4_0.bin",
     )
+
+    normalized_expected_path = os.path.normpath(expected_path)
+
+    assert normalized_expected_path in paths
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Skip windows")
 def test_remove_cached_models(setup):
     endpoint, local_host = setup
     client = RESTfulClient(endpoint)
-    responses = client.remove_cached_models("orca--3B--ggmlv3--q4_0")
+    responses = client.confirm_and_remove_model("orca--3B--ggmlv3--q4_0")
     assert responses
 
 

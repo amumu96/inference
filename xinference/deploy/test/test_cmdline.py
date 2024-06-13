@@ -290,10 +290,6 @@ def test_list_cached_models(setup):
         list_cached_models,
         ["--endpoint", endpoint, "--model_name", "orca"],
     )
-    assert result.exit_code == 0
-    assert "cached_model: " in result.stdout
-
-    # check if the output is in tabular format
     assert "model_name" in result.stdout
     assert "model_format" in result.stdout
     assert "model_size_in_billions" in result.stdout

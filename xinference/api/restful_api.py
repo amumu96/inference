@@ -122,6 +122,14 @@ class TextToImageRequest(BaseModel):
     user: Optional[str] = None
 
 
+class SpeechRequest(BaseModel):
+    model: str
+    input: str
+    voice: Optional[str]
+    response_format: Optional[str] = "mp3"
+    speed: Optional[float] = 1.0
+
+
 class RegisterModelRequest(BaseModel):
     model: str
     persist: bool
@@ -338,6 +346,16 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
+            "/v1/models/{model_uid}/requests/{request_id}/abort",
+            self.abort_request,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
             "/v1/models/instance",
             self.launch_model_by_version,
             methods=["POST"],
@@ -411,6 +429,16 @@ class RESTfulAPI:
         self._router.add_api_route(
             "/v1/audio/translations",
             self.create_translations,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:read"])]
+                if self.is_authenticated()
+                else None
+            ),
+        )
+        self._router.add_api_route(
+            "/v1/audio/speech",
+            self.create_speech,
             methods=["POST"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:read"])]
@@ -494,7 +522,7 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
-            "/v1/cached/list_cached_models",
+            "/v1/cached/models",
             self.list_cached_models,
             methods=["GET"],
             dependencies=(
@@ -504,8 +532,8 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
-            "/v1/get_remove_cached_models",
-            self.get_remove_cached_models,
+            "/v1/cached/models/status",
+            self.list_deletable_models,
             methods=["GET"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:list"])]
@@ -514,8 +542,8 @@ class RESTfulAPI:
             ),
         )
         self._router.add_api_route(
-            "/v1/remove_cached_models",
-            self.remove_cached_models,
+            "/v1/cached/models/deletion",
+            self.confirm_and_remove_model,
             methods=["POST"],
             dependencies=(
                 [Security(self._auth_service, scopes=["models:list"])]
@@ -1199,6 +1227,38 @@ class RESTfulAPI:
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def create_speech(self, request: Request) -> Response:
+        body = SpeechRequest.parse_obj(await request.json())
+        model_uid = body.model
+        try:
+            model = await (await self._get_supervisor_ref()).get_model(model_uid)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            await self._report_error_event(model_uid, str(ve))
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            out = await model.speech(
+                input=body.input,
+                voice=body.voice,
+                response_format=body.response_format,
+                speed=body.speed,
+            )
+            return Response(media_type="application/octet-stream", content=out)
+        except RuntimeError as re:
+            logger.error(re, exc_info=True)
+            await self._report_error_event(model_uid, str(re))
+            self.handle_request_limit_error(re)
+            raise HTTPException(status_code=400, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def create_images(self, request: Request) -> Response:
         body = TextToImageRequest.parse_obj(await request.json())
         model_uid = body.model
@@ -1546,6 +1606,15 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def abort_request(self, model_uid: str, request_id: str) -> JSONResponse:
+        try:
+            supervisor_ref = await self._get_supervisor_ref()
+            res = await supervisor_ref.abort_request(model_uid, request_id)
+            return JSONResponse(content=res)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def list_vllm_supported_model_families(self) -> JSONResponse:
         try:
             from ..model.llm.vllm.core import (
@@ -1582,12 +1651,11 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def get_remove_cached_models(self, request: Request) -> JSONResponse:
-        payload = await request.json()
-        worker_ip = payload.get("worker_ip", None)
-        model_version = payload.get("model_version", None)
+    async def list_deletable_models(
+        self, model_version: str = Query(None), worker_ip: str = Query(None)
+    ) -> JSONResponse:
         try:
-            data = await (await self._get_supervisor_ref()).get_remove_cached_models(
+            data = await (await self._get_supervisor_ref()).list_deletable_models(
                 model_version, worker_ip
             )
             response = {
@@ -1603,12 +1671,12 @@ class RESTfulAPI:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def remove_cached_models(self, request: Request) -> JSONResponse:
+    async def confirm_and_remove_model(self, request: Request) -> JSONResponse:
         payload = await request.json()
         model_version = payload.get("model_version")
         worker_ip = payload.get("worker_ip", None)
         try:
-            res = await (await self._get_supervisor_ref()).remove_cached_models(
+            res = await (await self._get_supervisor_ref()).confirm_and_remove_model(
                 model_version=model_version, worker_ip=worker_ip
             )
             return JSONResponse(content={"result": res})

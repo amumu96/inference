@@ -1010,6 +1010,32 @@ class SupervisorActor(xo.StatelessActor):
         return cached_models
 
     @log_async(logger=logger)
+    async def abort_request(self, model_uid: str, request_id: str) -> Dict:
+        from .scheduler import AbortRequestMessage
+
+        res = {"msg": AbortRequestMessage.NO_OP.name}
+        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+        if not replica_info:
+            return res
+        replica_cnt = replica_info.replica
+
+        # Query all replicas
+        for rep_mid in iter_replica_model_uid(model_uid, replica_cnt):
+            worker_ref = self._replica_model_uid_to_worker.get(rep_mid, None)
+            if worker_ref is None:
+                continue
+            model_ref = await worker_ref.get_model(model_uid=rep_mid)
+            result_info = await model_ref.abort_request(request_id)
+            res["msg"] = result_info
+            if result_info == AbortRequestMessage.DONE.name:
+                break
+            elif result_info == AbortRequestMessage.NOT_FOUND.name:
+                logger.debug(f"Request id: {request_id} not found for model {rep_mid}")
+            else:
+                logger.debug(f"No-op for model {rep_mid}")
+        return res
+
+    @log_async(logger=logger)
     async def add_worker(self, worker_address: str):
         from .worker import WorkerActor
 
@@ -1056,7 +1082,7 @@ class SupervisorActor(xo.StatelessActor):
             worker_status.update_time = time.time()
             worker_status.status = status
 
-    async def get_remove_cached_models(
+    async def list_deletable_models(
         self, model_version: str, worker_ip: Optional[str] = None
     ) -> List[str]:
         target_ip_worker_ref = (
@@ -1071,17 +1097,17 @@ class SupervisorActor(xo.StatelessActor):
 
         ret = []
         if target_ip_worker_ref:
-            ret = await target_ip_worker_ref.get_remove_cached_models(
+            ret = await target_ip_worker_ref.list_deletable_models(
                 model_version=model_version,
             )
             return ret
 
         for worker in self._worker_address_to_worker.values():
-            path = await worker.get_remove_cached_models(model_version=model_version)
+            path = await worker.list_deletable_models(model_version=model_version)
             ret.extend(path)
         return ret
 
-    async def remove_cached_models(
+    async def confirm_and_remove_model(
         self, model_version: str, worker_ip: Optional[str] = None
     ) -> bool:
         target_ip_worker_ref = (
@@ -1095,13 +1121,13 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
 
         if target_ip_worker_ref:
-            ret = await target_ip_worker_ref.remove_cached_models(
+            ret = await target_ip_worker_ref.confirm_and_remove_model(
                 model_version=model_version,
             )
             return ret
         ret = True
         for worker in self._worker_address_to_worker.values():
-            ret = ret and await worker.remove_cached_models(
+            ret = ret and await worker.confirm_and_remove_model(
                 model_version=model_version,
             )
         return ret
