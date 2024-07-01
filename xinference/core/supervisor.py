@@ -860,6 +860,7 @@ class SupervisorActor(xo.StatelessActor):
         instance_info = InstanceInfo(
             model_name=model_name,
             model_uid=model_uid,
+            model_engine=model_engine,
             model_version=model_version,
             model_ability=[],
             replica=replica,

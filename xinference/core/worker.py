@@ -323,15 +323,21 @@ class WorkerActor(xo.StatelessActor):
                 has_vllm_model = False
                 if _dev in self._gpu_to_model_uid:
                     existing_model_uid = self._gpu_to_model_uid[_dev]
-                    has_vllm_model = await self.is_model_vllm_backend(
-                        existing_model_uid
+                    _model_uid, _, _ = parse_replica_model_uid(existing_model_uid)
+                    instance = await self._status_guard_ref.get_instance_info(
+                        _model_uid
                     )
+                    has_vllm_model = instance[0].model_engine == "vLLM"
                 if (
                     not has_vllm_model
                     and _dev in self._user_specified_gpu_to_model_uids
                 ):
                     for rep_uid, _ in self._user_specified_gpu_to_model_uids[_dev]:
-                        has_vllm_model = await self.is_model_vllm_backend(rep_uid)
+                        _model_uid, _, _ = parse_replica_model_uid(rep_uid)
+                        instance = await self._status_guard_ref.get_instance_info(
+                            _model_uid
+                        )
+                        has_vllm_model = instance[0].model_engine == "vLLM"
                         if has_vllm_model:
                             break
                 if not has_vllm_model:
