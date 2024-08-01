@@ -118,12 +118,17 @@ def get_cache_status(
 
 
 class EmbeddingModel:
-    def __init__(self, model_uid: str, model_path: str, device: Optional[str] = None):
+    def __init__(self, model_uid: str, model_path: str, device: Optional[List[str]] = None):
         self._model_uid = model_uid
         self._model_path = model_path
         self._device = device
         self._model = None
+        self._pool = None
         self._counter = 0
+
+    def __del__(self):
+       if self._pool is not None:
+           self._model.stop_multi_process_pool(self._pool)
 
     def load(self):
         try:
@@ -139,7 +144,9 @@ class EmbeddingModel:
         from ..utils import patch_trust_remote_code
 
         patch_trust_remote_code()
-        self._model = SentenceTransformer(self._model_path, device=self._device)
+
+        self._model = SentenceTransformer(self._model_path)
+        self._pool = self._model.start_multi_process_pool() if len(self._device) > 1 else None
 
     def create_embedding(self, sentences: Union[str, List[str]], **kwargs):
         self._counter += 1
@@ -281,12 +288,16 @@ class EmbeddingModel:
 
             return all_embeddings, all_token_nums
 
-        all_embeddings, all_token_nums = encode(
-            self._model,
-            sentences,
-            convert_to_numpy=False,
-            **kwargs,
-        )
+        all_token_nums = 0
+        if len(self._device) > 1:
+            all_embeddings = self._model.encode_multi_process(sentences, self._pool)
+        else:
+            all_embeddings, all_token_nums = encode(
+                self._model,
+                sentences,
+                convert_to_numpy=False,
+                **kwargs,
+            )
         if isinstance(sentences, str):
             all_embeddings = [all_embeddings]
         embedding_list = []
@@ -348,7 +359,7 @@ def create_embedding_model_instance(
 ) -> Tuple[EmbeddingModel, EmbeddingModelDescription]:
     model_spec = match_embedding(model_name, download_hub)
     model_path = cache(model_spec)
-    model = EmbeddingModel(model_uid, model_path, **kwargs)
+    model = EmbeddingModel(model_uid, model_path, devices)
     model_description = EmbeddingModelDescription(
         subpool_addr, devices, model_spec, model_path=model_path
     )
