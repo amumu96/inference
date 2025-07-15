@@ -48,6 +48,7 @@ def test_tqdm_patch():
     assert downloader.done
 
 
+@pytest.mark.asyncio
 async def test_download_hugginface():
     from ..llm import BUILTIN_LLM_FAMILIES
     from ..llm.llm_family import cache_from_huggingface
@@ -85,6 +86,7 @@ async def test_download_hugginface():
             shutil.rmtree(cache_dir)
 
 
+@pytest.mark.asyncio
 async def test_download_modelscope():
     from ..llm import BUILTIN_MODELSCOPE_LLM_FAMILIES
     from ..llm.llm_family import cache_from_modelscope
@@ -124,6 +126,7 @@ async def test_download_modelscope():
             shutil.rmtree(cache_dir)
 
 
+@pytest.mark.asyncio
 async def test_cancel():
     from ..llm import BUILTIN_MODELSCOPE_LLM_FAMILIES
     from ..llm.llm_family import cache_from_modelscope
