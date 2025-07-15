@@ -54,6 +54,8 @@ async def test_download_hugginface():
     from ..llm.llm_family import cache_from_huggingface
 
     cache_dir = None
+    done = False
+    check_task = None
 
     try:
         with CancellableDownloader() as downloader:
@@ -72,15 +74,28 @@ async def test_download_hugginface():
                     progress = downloader.get_progress()
                     assert progress >= 0
 
-            done = False
             check_task = asyncio.create_task(check())
             # download from huggingface
             cache_dir = await asyncio.to_thread(cache_from_huggingface, family, spec)
             done = True
 
-            await check_task
+            # 添加超时等待
+            await asyncio.wait_for(check_task, timeout=5.0)
             assert downloader.get_progress() == 1.0
+    except Exception:
+        # 确保在异常情况下也设置 done 为 True
+        done = True
+        raise
     finally:
+        # 确保 done 标志被设置，以便 check 任务可以退出
+        done = True
+        # 确保 check_task 被取消
+        if check_task and not check_task.done():
+            check_task.cancel()
+            try:
+                await asyncio.wait_for(check_task, timeout=1.0)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                pass
         if cache_dir:
             shutil.rmtree(get_real_path(cache_dir))
             shutil.rmtree(cache_dir)
@@ -92,6 +107,8 @@ async def test_download_modelscope():
     from ..llm.llm_family import cache_from_modelscope
 
     cache_dir = None
+    done = False
+    check_task = None
 
     try:
         with CancellableDownloader() as downloader:
@@ -112,15 +129,28 @@ async def test_download_modelscope():
                     progress = downloader.get_progress()
                     assert progress >= 0
 
-            done = False
             check_task = asyncio.create_task(check())
-            # download from huggingface
+            # download from modelscope
             cache_dir = await asyncio.to_thread(cache_from_modelscope, family, spec)
             done = True
 
-            await check_task
+            # 添加超时等待
+            await asyncio.wait_for(check_task, timeout=5.0)
             assert downloader.get_progress() == 1.0
+    except Exception:
+        # 确保在异常情况下也设置 done 为 True
+        done = True
+        raise
     finally:
+        # 确保 done 标志被设置，以便 check 任务可以退出
+        done = True
+        # 确保 check_task 被取消
+        if check_task and not check_task.done():
+            check_task.cancel()
+            try:
+                await asyncio.wait_for(check_task, timeout=1.0)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                pass
         if cache_dir:
             shutil.rmtree(get_real_path(cache_dir))
             shutil.rmtree(cache_dir)
