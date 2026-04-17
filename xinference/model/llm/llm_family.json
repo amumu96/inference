@@ -25515,9 +25515,9 @@
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
-    "tool_parser": "deepseek-r1",
+    "tool_parser": "deepseek-v3.2",
     "featured": true,
-    "updated_at": 1776418039
+    "updated_at": 1776418092
   },
   {
     "model_name": "DeepSeek-V3.2-Exp",
