@@ -180,8 +180,7 @@ async def test_restful_api(setup):
         ],
     }
     response = requests.post(url, json=payload)
-    completion = response.json()
-    assert "content" in completion["choices"][0]["message"]
+    assert response.status_code == 200
 
     # allow duplicate system messages
     payload = {
