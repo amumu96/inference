@@ -170,6 +170,7 @@ async def test_restful_api(setup):
     response = requests.post(url, json=payload)
     assert response.status_code == 400
 
+    # allow last message role to be assistant
     payload = {
         "model": model_uid_res,
         "messages": [
@@ -179,7 +180,8 @@ async def test_restful_api(setup):
         ],
     }
     response = requests.post(url, json=payload)
-    assert response.status_code == 400
+    completion = response.json()
+    assert "content" in completion["choices"][0]["message"]
 
     # allow duplicate system messages
     payload = {
